@@ -61,8 +61,14 @@ class CachingCaller(object):
         return np.allclose(self.last_eval, other)
 
 class Objective(CachingCaller):
-    def __init__(self, fn, key, remember = True, **kw):
+    def __init__(self, fn, key, remember = True, reduction=np.sum, **kw):
         CachingCaller.__init__(self, fn, key, remember=remember, **kw)
+        self.reduction = reduction
+
+    def __call__(self, grouper, cache=True, **kw):
+        out = CachingCaller.__call__(self, grouper, cache=cache, **kw)
+        return self.reduction(out)
+
 
 class Constraint(CachingCaller):
     def __init__(self, remember=True, **kw):
@@ -226,7 +232,7 @@ class Regionalizer(object):
             result = result.loc[:,~result.columns.duplicated()]
         return result
 
-    def score(self, data=None, reduction=np.sum, **kw):
+    def score(self, data=None, **kw):
         """
         Score the regions by reducing a vector of region
          summaries to a single number. By default, this reduction is a sum. 
@@ -234,7 +240,7 @@ class Regionalizer(object):
         if data is None:
             data = self._data
         grouper = data.groupby('current_labels')
-        return reduction(self.objective(grouper, **kw))
+        return self.objective(grouper, **kw)
     
     def feasible(self, data=None, **kw):
         """
