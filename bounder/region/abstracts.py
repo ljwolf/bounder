@@ -5,109 +5,13 @@ import pandas as pd
 from . import utils
 import networkx as nx
 from collections import namedtuple
+from .functions.abstracts import Constraint, Objective
 
 move = namedtuple('move', ('focal_id', 'focal_label', 
                   'neighbor_id', 'neighbor_label', 
                   'new_objective', 'current_objective',
                   'new_burden', 'current_burden',
                   'valid', 'type'))
-
-
-class CachingCaller(object):
-    """
-    An object that stores its results in a private _trace list if asked to
-    remember things. If not, the _trace only ever has the last called value. 
-    """
-    def __init__(self, fn, key,
-                 initial_value = -np.nan, remember=True, 
-                 rtol=1e-5, atol=1e-7):
-        self.key = key
-        self.fn = fn
-        self._trace = [initial_value]
-        self._remember = remember
-        self._rtol = rtol
-        self._atol = atol
-
-    def __call__(self, grouper, cache=True, **kw):
-        result = grouper[self.key].apply(self.fn, **kw).values
-        if not cache:
-            return result
-        elif self._remember:
-            self._trace.append(result)
-        else:
-            self._trace[-1] = result
-        return result
-
-    @property
-    def last_eval(self):
-        return self._trace[-1]
-
-    @classmethod
-    def from_kw(cls, **kw):
-        if len(kw) == 1:
-            key = list(kw.keys())[0]
-            fn = kw[key]
-            return cls(key=key, fn=fn)
-        else:
-            return [cls(fn=val, key=key) for key,val in kw.items()]
-
-    def __gt__(self, other):
-        return self.last_eval > other
-    
-    def __lt__(self, other):
-        return self.last_eval < other
-
-    def __eq__(self, other):
-        return np.allclose(self.last_eval, other)
-
-class Objective(CachingCaller):
-    def __init__(self, fn, key, remember = True, reduction=np.sum, **kw):
-        CachingCaller.__init__(self, fn, key, remember=remember, **kw)
-        self.reduction = reduction
-
-    def __call__(self, grouper, cache=True, **kw):
-        out = CachingCaller.__call__(self, grouper, cache=cache, **kw)
-        return self.reduction(out)
-
-
-class Constraint(CachingCaller):
-    def __init__(self, remember=True, **kw):
-        rtol = kw.pop('rtol', 1e-5)
-        atol = kw.pop('atol', 1e-7)
-        initial_value = kw.pop('initial_value', -np.nan)
-        if len(kw) < 1:
-            raise KeyError("Key not provided with constraint function")
-        if len(kw) != 1:
-            raise TypeError("Multiple constraints provided to wrong constructor!")
-        key = list(kw.keys())[0]
-        fn = list(kw.values())[0]
-        CachingCaller.__init__(self, fn, key, remember=remember, rtol=rtol,
-                               atol=atol, initial_value = initial_value)
-
-    def above(self, value, **kw):
-        self.threshold = -value
-        self._orig_fn = self.fn
-        def neg_fn(*args, **kwargs):
-            return -1 * self._orig_fn(*args, **kwargs)
-        neg_fn.__dict__ = self.fn.__dict__
-        self.fn = neg_fn
-        return self
-
-    def below(self, value, **kw):
-        self.threshold = value
-        return self
-
-    def slack(self, data=None):
-        if data is None:
-            return self.last_eval - self.threshold
-        else:
-            return self(data) - self.threshold
-
-    def satisfied(self, val=None):
-        if val is None:
-            return np.all(self.last_eval <= 0)
-        else:
-            return np.all(self(val, cache=False) <= 0)
 
 class Regionalizer(object):
     def __init__(self, objective, constraints=None, remember=True):

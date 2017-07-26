@@ -58,7 +58,7 @@ class Tabu(MetaHeuristic):
         if self.max_size is None:
             self.max_size = self.boundary_alist.shape[0] // self.n_clusters
         on_pass = 0
-        print('starting passes')
+        #print('starting passes')
         if rounds > 0:
             repeater = np.arange(self.n_clusters).tolist()*rounds
             for target in tqdm_(repeater):
@@ -71,9 +71,9 @@ class Tabu(MetaHeuristic):
                 label = target_label
             else:
                 label = np.random.randint(0,self.n_clusters)
-            print('refining {}'.format(label))
+            #print('refining {}'.format(label))
             candidates = list(self._generate_candidates(label))
-            print(candidates)
+            #print(candidates)
             best_move = move(None, None, None, None,
                              -np.inf, -np.inf, 
                              np.inf, np.inf,
@@ -82,8 +82,8 @@ class Tabu(MetaHeuristic):
                 if (focal, neighbor) not in self.tabu_list:
                     orig_label = self._data.ix[focal].current_labels
                     candidate_label = self._data.ix[neighbor].current_labels
-                    print('considering {} ({}) -> {} ({})'\
-                              .format(focal, orig_label, neighbor, candidate_label))
+                    #print('considering {} ({}) -> {} ({})'\
+                    #         .format(focal, orig_label, neighbor, candidate_label))
                     local = self._data.copy()
                     lgrouper = local.groupby('current_labels')
                     current_objective = self.score(local)
@@ -101,19 +101,19 @@ class Tabu(MetaHeuristic):
                     current_burden = np.sum(current_burden.sum(axis=1))
                     new_burden = new_slack * (new_slack > 0).astype(int)
                     new_burden = np.sum(new_burden.sum(axis=1))
-                    print((new_objective, current_objective, new_burden, current_burden))
+                    #print((new_objective, current_objective, new_burden, current_burden))
                     if new_valid and (not current_valid):
-                        print('valid move')
+                        #print('valid move')
                         best_move = move(focal, orig_label, 
                                              neighbor, candidate_label, 
                                              new_objective, current_objective,
                                              new_burden, current_burden,
                                              new_valid, 'validity')
                     elif new_connected and (new_burden < current_burden):
-                        print('slack reduction {}'.format(
-                              np.hstack((new_burden, current_burden))))
+                        #print('slack reduction {}'.format(
+                        #      np.hstack((new_burden, current_burden))))
                         #evaluate slacks and accept if it improves the slacks
-                        print(new_burden, best_move.new_burden)
+                        #print(new_burden, best_move.new_burden)
                         if new_burden < best_move.new_burden:
                             best_move = move(focal, orig_label, 
                                              neighbor, candidate_label, 
@@ -121,8 +121,8 @@ class Tabu(MetaHeuristic):
                                              new_burden, current_burden,
                                              new_valid, 'slack')
                     elif new_valid and (current_objective < new_objective):
-                        print('obj reduction {}'.format(
-                              new_objective - current_objective))
+                        #print('obj reduction {}'.format(
+                        #      new_objective - current_objective))
                         if best_move.new_objective < new_objective:
                             best_move = move(focal, orig_label, 
                                              neighbor, candidate_label,
