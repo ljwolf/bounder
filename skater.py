@@ -85,9 +85,11 @@ class Spanning_Forest(object):
             warn("By default, the graph is disconnected! {}".format(chosen_warning),
                  OptimizeWarning, stacklevel=2)
             if not ignoring_islands:
-                n_clusters += (current_n_subtrees)      
-            if np.isfinite(quorum):
-                raise ValueError("Islands must be larger than the quorum.")
+                n_clusters += (current_n_subtrees) 
+            _,island_populations = np.unique(current_labels, return_counts=True)
+            if (island_populations < quorum).any():
+                raise ValueError("Islands must be larger than the quorum. If not, drop the small islands and solve for"
+                                 " clusters in the remaining field.")
         if trace:
             self._trace.append((current_labels, deletion(np.nan, np.nan, np.inf)))
         while current_n_subtrees < n_clusters: # while we don't have enough regions
@@ -139,12 +141,23 @@ class Spanning_Forest(object):
         n_subtrees = len(subtree_quorums)
         if (subtree_quorums < quorum).any():
             return np.inf
+        # instead of reduce-reduce, we stack, reduce-reduce
+        # allow reduction within to be differet from reduction-between
+        # apply reduction only one time. 
         part_scores = [self.reduction(self.metric(X=data[labels==l],
                                                   Y=self.center(data[labels==l], 
                                                                 axis=0).reshape(1,-1)
                                                  )
                                      ) for l in range(n_subtrees)]
         return self.reduction(part_scores).item()
+        # part_scores = np.vstack(([self.metric(X=data[labels==l],
+        #                                         Y=self.center(data[labels==l], 
+        #                                                       axis=0).reshape(1,-1)
+        #                                        )
+        #                            ) for l in range(n_subtrees)]))
+        #return self.reduction(part_scores).item()
+        # reduction(data) must take (subtrees,covariates) matrix, 
+        # reduce to a single element matrix that can get .item() for a single score. 
     
     def find_cut(self, MSF, data=None, quorum=-np.inf, 
                  labels=None, target_label=None, make=False):
